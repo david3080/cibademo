@@ -6,8 +6,9 @@ import 'package:http/http.dart' as http;
 
 const _issuer = 'https://oidc.sonrisa.co.jp/oidc';
 const _clientId = 'cibademo-rp';
-// PoC につきハードコード。本番強化時は Secret Manager や OAuth assertion に置換すること。
-const _clientSecret = 'gI9fe5kNhraJIBfc87RQgrWSPUbDSHyW8P8Y3Kc8KsQsantw';
+// secret はビルド時に --dart-define=CIBA_SECRET=... で外から注入する。
+// GitHub Actions では Secrets.CIBA_SECRET から渡し、git にはコミットしない。
+const _clientSecret = String.fromEnvironment('CIBA_SECRET');
 
 void main() {
   runApp(const MyApp());
