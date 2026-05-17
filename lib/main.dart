@@ -63,6 +63,8 @@ class _HomePageState extends State<HomePage> {
         body: {
           'scope': 'openid profile email',
           'login_hint': _username.text.trim(),
+          'binding_message':
+              'cibademo (Mac) — ${DateTime.now().toLocal().toString().substring(0, 16)}',
         },
       );
       if (bcRes.statusCode != 200) {
