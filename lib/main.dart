@@ -134,9 +134,21 @@ class _HomePageState extends State<HomePage> {
         utf8.decode(base64Url.decode(b64pad(parts[1]))),
       ) as Map<String, dynamic>;
 
+      // userinfo (= /oidc/me) も DPoP-bound access_token なので proof + Authorization: DPoP が必須。
+      // access_token を accessToken に渡すと ath (= SHA-256(access_token)) も自動付与される。
+      const userinfoUrl = '$_issuer/me';
+      final accessToken = token['access_token'] as String;
+      final uiProof = await dpopGen.createProof(
+        htm: 'GET',
+        htu: userinfoUrl,
+        accessToken: accessToken,
+      );
       final uiRes = await http.get(
-        Uri.parse('$_issuer/me'),
-        headers: {'Authorization': 'Bearer ${token['access_token']}'},
+        Uri.parse(userinfoUrl),
+        headers: {
+          'Authorization': 'DPoP $accessToken',
+          'DPoP': uiProof,
+        },
       );
       final userInfo = uiRes.statusCode == 200
           ? jsonDecode(uiRes.body) as Map<String, dynamic>
