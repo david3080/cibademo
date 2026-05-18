@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dart_dpop/dart_dpop.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -43,6 +44,15 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _idTokenClaims;
   Map<String, dynamic>? _userInfo;
 
+  // DPoP proof generator (ES256 / pointycastle 実装、起動時に key 生成)。
+  // アプリ再起動で key は新規に変わるので進行中の access_token は無効化される。
+  late final Future<DpopProofGenerator> _dpopGenFuture = _initDpop();
+
+  Future<DpopProofGenerator> _initDpop() async {
+    final key = await Es256DpopKey.generate();
+    return DpopProofGenerator(key: key);
+  }
+
   String get _basicAuth =>
       'Basic ${base64Encode(utf8.encode('$_clientId:$_clientSecret'))}';
 
@@ -75,14 +85,24 @@ class _HomePageState extends State<HomePage> {
       var interval = (bc['interval'] as num?)?.toInt() ?? 5;
       setState(() => _status = 'auth_req_id 取得。承認をポーリング中…');
 
+      // token endpoint への各 POST に DPoP proof を付与 (RFC 9449)。
+      // OP は access_token に cnf.jkt を埋め込んで sender-constrained にする。
+      final dpopGen = await _dpopGenFuture;
+      const tokenUrl = '$_issuer/token';
+
       Map<String, dynamic>? token;
       while (token == null) {
         await Future.delayed(Duration(seconds: interval));
+        final dpopProof = await dpopGen.createProof(
+          htm: 'POST',
+          htu: tokenUrl,
+        );
         final tokRes = await http.post(
-          Uri.parse('$_issuer/token'),
+          Uri.parse(tokenUrl),
           headers: {
             'Authorization': _basicAuth,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'DPoP': dpopProof,
           },
           body: {
             'grant_type': 'urn:openid:params:grant-type:ciba',
